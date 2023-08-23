@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTO Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.example.moneytransfer.mapper.GroupMapper">
+
+    <insert id="createGroup" useGeneratedKeys="true"
+            keyProperty="group_request.group_code"
+            parameterType = "com.example.moneytransfer.dto.GroupCreateDTO">
+        INSERT INTO TB_GROUP
+        (group_name,headcount,owner_code, createdAt)
+        VALUES (
+        #{group_request.group_name},
+        #{group_request.headcount},
+        #{group_request.owner_code},
+        NOW()
+        );
+
+    </insert>
+
+
+    <update id="inviteMembers" parameterType = "java.util.List">
+        UPDATE TB_USER
+        <set>
+            is_invited = 1,
+            invited_from = #{group_code}
+        </set>
+         WHERE user_code IN
+        <foreach collection="user_list" item="item" separator="," open="(" close=")">
+            #{item.user_code}
+        </foreach>
+
+    </update>
+
+    <select id="getGroupName" resultType="String">
+
+        SELECT group_name FROM TB_GROUP WHERE
+        group_code = #{group_code}
+    </select>
+
+    <select id="getGroupOwnerName" resultType="String">
+        SELECT DISTINCT(user_name) FROM TB_USER AS A INNER JOIN TB_GROUP AS B ON A.user_code = B.owner_code
+        WHERE B.group_code = #{group_code}
+    </select>
+
+    <update id="disableInvite">
+        UPDATE TB_USER SET is_invited = 0, invited_from = null
+        WHERE user_code = #{user_code}
+    </update>
+
+    <update id="editGroupName" >
+        UPDATE TB_GROUP SET group_name = #{group_name} WHERE
+        group_code = #{group_code}
+    </update>
+
+    <select id="getGroupList" resultType="Map">
+        SELECT group_code, group_name,headcount FROM
+        TB_GROUP WHERE group_code in
+        (SELECT group_code AS group_code FROM TB_USER_has_TB_GROUP
+                 WHERE user_code = #{user_code})
+    </select>
+
+    <select id="getMemberListFromGroup" resultType="Map">
+
+        SELECT B.user_code, A.user_name, A.is_taken FROM TB_USER AS A INNER JOIN
+        TB_USER_has_TB_GROUP AS B
+        ON A.user_code = B.user_code
+        WHERE B.group_code = #{group_code}
+    </select>
+
+    <select id="getNameFromGroup" resultType="String">
+
+       SELECT group_name FROM TB_GROUP WHERE group_code = #{group_code}
+    </select>
+
+    <select id="getDateFromGroup" resultType="java.time.LocalDateTime">
+        SELECT NOW();
+    </select>
+
+    <select id="getMemberListFromGroupExceptMe" resultType="Map">
+
+        SELECT B.user_code, A.user_name FROM TB_USER AS A INNER JOIN
+                                             TB_USER_has_TB_GROUP AS B
+                                             ON A.user_code = B.user_code
+        WHERE B.group_code = #{group_code} AND B.user_code != #{user_code}
+    </select>
+
+
+    <delete id="leaveGroup">
+
+        DELETE FROM TB_USER_has_TB_GROUP WHERE user_code = #{user_code} AND
+                                               group_code = #{group_code}
+    </delete>
+
+    <select id="getGroupHeadCount" resultType="int">
+
+        SELECT headcount FROM TB_GROUP
+        WHERE group_code = #{group_code}
+    </select>
+
+    <delete id="deleteGroup">
+        DELETE FROM TB_GROUP WHERE group_code = #{group_code}
+    </delete>
+
+    <insert id="acceptInvite">
+        INSERT INTO TB_USER_has_TB_GROUP
+        VALUES (#{user_code},#{group_code})
+    </insert>
+
+    <select id="checkInvite" resultType="Map">
+        SELECT is_invited, invited_from FROM TB_USER
+        WHERE user_code = #{user_code}
+    </select>
+
+
+
+
+
+
+</mapper>

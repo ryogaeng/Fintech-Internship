@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTO Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.example.moneytransfer.mapper.AccountMapper">
+    <update id="deposit" parameterType="com.example.moneytransfer.dto.AccountPaymentDTO" >
+        UPDATE TB_ACCOUNT SET balance_amt = balance_amt + #{payment_detail.tran_amt} WHERE
+            account_code = #{payment_detail.account_code} and
+            balance_amt >= #{payment_detail.tran_amt} ;
+    </update>
+
+
+    <insert id = "createPaymentDetail" useGeneratedKeys="true"
+            keyProperty="payment_detail.bank_tran_id" parameterType="com.example.moneytransfer.dto.AccountPaymentDTO">
+        INSERT INTO TB_PAYMENT_DETAILS
+            (tran_dtm,balance_amt,tran_amt,is_taken,payment_dest,
+             account_code,
+             user_code,group_code, to_account_code, to_user_code)
+
+        VALUES (NOW(),(SELECT balance_amt FROM TB_ACCOUNT WHERE account_code = #{payment_detail.account_code}),
+                #{payment_detail.tran_amt},#{payment_detail.is_taken},
+                #{payment_detail.payment_dest},
+                #{payment_detail.account_code},
+                (SELECT user_code FROM TB_ACCOUNT WHERE account_code = #{payment_detail.account_code}),
+                #{payment_detail.group_code},
+                #{payment_detail.to_account_code},
+                #{payment_detail.to_user_code}
+                )
+    </insert>
+    <select id = "getAccountCode" resultType="int">
+
+        SELECT account_code, account_num FROM TB_ACCOUNT WHERE user_code = #{user_code} AND
+                                                  priority = 1
+    </select>
+    <select id ="getBalance" resultType="int">
+        SELECT balance_amt FROM TB_ACCOUNT WHERE account_code = #{account_code}
+    </select>
+
+    <select id ="getAccountList" resultType ="com.example.moneytransfer.dto.AccountDTO">
+        SELECT * FROM TB_ACCOUNT WHERE user_code = #{user_code}
+    </select>
+
+    <select id ="getTransferHistory" resultType ="com.example.moneytransfer.dto.AccountDTO">
+        SELECT account_code, balance_amt, user_code FROM TB_PAYMENT_DETAILS WHERE account_code = #{account_code}
+    </select>
+
+    <select id = "getAccountNum" resultType="String">
+
+        SELECT DISTINCT(account_num) FROM TB_ACCOUNT WHERE account_code = #{account_code}
+    </select>
+
+    <select id = "getUserId" resultType ="String">
+        SELECT id FROM TB_USER WHERE user_code = #{user_code}
+    </select>
+
+    <select id="getNonCalculateMemberList" resultType="Map">
+
+        SELECT A.tran_amt, A.user_code, B.id FROM TB_PAYMENT_DETAILS AS A
+        INNER JOIN TB_USER AS B ON A.user_code = B.user_code
+        WHERE is_taken = 0 AND group_code IS NOT NULL
+        AND group_code = #{group_code}
+    </select>
+
+
+    <update id="activateGroupPay">
+        UPDATE TB_GROUP SET is_active = 1 WHERE group_code = #{group_code};
+
+    </update>
+
+    <insert id="insertGroupPayRequest"  useGeneratedKeys="true">
+
+        INSERT INTO TB_GROUP_PAY_REQUEST (
+        tran_amt, request_dtm,
+        group_code, user_code, to_user_code) VALUES
+        <foreach collection="member_list" item="item" separator=",">
+            ( #{payment_detail.tran_amt}, NOW(),
+            #{payment_detail.group_code}, #{item.user_code}, #{to_user_code})
+        </foreach>
+
+    </insert>
+
+
+    <select id = "checkGroupPay" resultType="int">
+        SELECT 1 WHERE EXISTS (SELECT tran_amt,group_code, to_user_code FROM TB_GROUP_PAY_REQUEST
+        WHERE user_code = #{user_code} AND is_respond = 0)
+    </select>
+
+    <select id = "getGroupPay" resultType="Map">
+        SELECT tran_amt,group_code, to_user_code FROM TB_GROUP_PAY_REQUEST
+        WHERE user_code = #{user_code} AND is_respond = 0
+    </select>
+
+    <update id ="acceptGroupPay">
+        UPDATE TB_GROUP_PAY_REQUEST SET is_respond = 1 WHERE user_code = #{user_code}
+        AND group_code = #{group_code}
+    </update>
+
+    <update id ="refuseGroupPay">
+        UPDATE TB_GROUP_PAY_REQUEST SET is_respond = 1 WHERE user_code = #{user_code}
+                                                         AND group_code = #{group_code}
+    </update>
+
+    <update id = "checkIsRequest" >
+        UPDATE TB_USER SET is_request = 1 WHERE user_code IN
+        <foreach collection="user_list" item="item" separator="," open="(" close=")">
+            #{item.user_code}
+        </foreach>
+    </update>
+
+
+
+    <select id= "getGroupPaymentDetails" resultType="Map">
+
+        SELECT * FROM TB_PAYMENT_DETAILS WHERE group_code = #{group_code}
+    </select>
+
+    <insert id="enrollAccount" useGeneratedKeys="true"
+            keyProperty="account.account_code"
+            parameterType="com.example.moneytransfer.dto.AccountDTO">
+        INSERT INTO TB_ACCOUNT
+            (user_code, account_num, bank_name)
+        VALUES (
+                   #{account.user_code},
+                   #{account.account_num},
+                   #{account.bank_name}
+               )
+    </insert>
+
+
+
+
+</mapper>
